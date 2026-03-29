@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Typography, TextField, Button, Box } from "@mui/material";
 import ChatMessage from "../components/ChatMessage";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { api } from "../api.js";
 
 export default function ChatPage() {
   const [inputValue, setInputValue] = useState("");
@@ -10,15 +12,36 @@ export default function ChatPage() {
     if (inputValue.trim() === "") return;
 
     const newMessage = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       text: inputValue,
       sender: "user",
     };
 
     setMessages([...messages, newMessage]);
 
+    mutation.mutate({ message: inputValue });
+
     setInputValue("");
   };
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["healthCheck"],
+    queryFn: () => api.get("/health").then((res) => res.data),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (newMsg) => api.post("/chat", newMsg).then((res) => res.data),
+    onSuccess: (data) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(), 
+          text: data.content,
+          sender: "ai",
+        },
+      ]);
+    },
+  });
 
   return (
     <Box
@@ -37,6 +60,7 @@ export default function ChatPage() {
         <Typography sx={{ p: 2 }} variant="h6">
           История чатов
         </Typography>
+        {isLoading ? "Проверка..." : data.status}
       </Box>
       <Box
         component="section"
@@ -67,7 +91,11 @@ export default function ChatPage() {
             }}
             placeholder="Напишите сообщение..."
           ></TextField>
-          <Button variant="contained" onClick={handleSendMessage}>
+          <Button
+            variant="contained"
+            onClick={handleSendMessage}
+            disabled={mutation.isPending}
+          >
             Отправить
           </Button>
         </Box>
