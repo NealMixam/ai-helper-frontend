@@ -1,18 +1,37 @@
-import { useState } from "react";
-import { Typography, TextField, Button, Box, IconButton } from "@mui/material";
-import LogoutIcon from '@mui/icons-material/Logout';
+import { useState, useRef, useEffect } from "react";
+import {
+  Typography,
+  TextField,
+  Button,
+  Box,
+  IconButton,
+  Tooltip,
+} from "@mui/material";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import LogoutIcon from "@mui/icons-material/Logout";
 import ChatMessage from "../components/ChatMessage";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api.js";
 
-export default function ChatPage({ onLogout }) {
+export default function ChatPage({ onLogout, toggleTheme, currentMode }) {
   const [inputValue, setInputValue] = useState("");
   const queryClient = useQueryClient();
+
+  const messagesEndRef = useRef(null);
 
   const { data: messages = [], isLoading } = useQuery({
     queryKey: ["messages"],
     queryFn: () => api.get("/messages").then((res) => res.data),
   });
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
 
   const mutation = useMutation({
     mutationFn: (newMsg) => api.post("/chat", newMsg).then((res) => res.data),
@@ -40,19 +59,40 @@ export default function ChatPage({ onLogout }) {
           borderRight: "1px solid",
           borderColor: "divider",
           display: "flex",
-          flexDirection: "column"
+          flexDirection: "column",
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box
+          sx={{
+            p: 2,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <Typography variant="h6">Чаты</Typography>
-          <IconButton onClick={onLogout} title="Выйти">
-            <LogoutIcon />
-          </IconButton>
+          <Box>
+            <Tooltip
+              title={currentMode === "dark" ? "Светлая тема" : "Темная тема"}
+            >
+              <IconButton onClick={toggleTheme} color="inherit">
+                {currentMode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+              </IconButton>
+            </Tooltip>
+
+            <Tooltip title="Выйти">
+              <IconButton onClick={onLogout} color="error">
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
-        
+
         <Box sx={{ p: 2 }}>
           <Typography variant="body2" color="text.secondary">
-            {isLoading ? "Загрузка истории..." : `Сообщений: ${messages.length}`}
+            {isLoading
+              ? "Загрузка истории..."
+              : `Сообщений: ${messages.length}`}
           </Typography>
         </Box>
       </Box>
@@ -65,6 +105,7 @@ export default function ChatPage({ onLogout }) {
           {messages.map((msg) => (
             <ChatMessage key={msg.id} message={msg} />
           ))}
+          <div ref={messagesEndRef} />
         </Box>
 
         <Box

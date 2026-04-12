@@ -1,27 +1,51 @@
 import "./App.css";
-import { useState, useEffect } from "react";
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import { useState, useMemo } from "react";
+import {
+  CssBaseline,
+  ThemeProvider,
+  createTheme,
+  useMediaQuery,
+} from "@mui/material";
 import ChatPage from "./pages/ChatPage";
 import AuthPage from "./pages/AuthPage";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-  },
-});
-
 const queryClient = new QueryClient();
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
     const token = localStorage.getItem("token");
-    if (token) {
-      setIsAuthenticated(true);
+    return !!token;
+  });
+
+  const prefersDarkMode = useMediaQuery("(prefers-color-scheme: dark)");
+
+  const [mode, setMode] = useState(() => {
+    return localStorage.getItem("themeMode") || "system";
+  });
+
+  const activeMode = useMemo(() => {
+    if (mode === "system") {
+      return prefersDarkMode ? "dark" : "light";
     }
-  }, []);
+    return mode;
+  }, [mode, prefersDarkMode]);
+
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode: activeMode,
+        },
+      }),
+    [activeMode],
+  );
+
+  const toggleTheme = () => {
+    const newMode = activeMode === "light" ? "dark" : "light";
+    setMode(newMode);
+    localStorage.setItem("themeMode", newMode);
+  };
 
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -35,10 +59,14 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={darkTheme}>
+      <ThemeProvider theme={theme}>
         <CssBaseline />
         {isAuthenticated ? (
-          <ChatPage onLogout={handleLogout} />
+          <ChatPage
+            onLogout={handleLogout}
+            toggleTheme={toggleTheme}
+            currentMode={activeMode}
+          />
         ) : (
           <AuthPage onLogin={handleLogin} />
         )}
