@@ -1,47 +1,31 @@
 import { useState } from "react";
-import { Typography, TextField, Button, Box } from "@mui/material";
+import { Typography, TextField, Button, Box, IconButton } from "@mui/material";
+import LogoutIcon from '@mui/icons-material/Logout';
 import ChatMessage from "../components/ChatMessage";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api.js";
 
-export default function ChatPage() {
+export default function ChatPage({ onLogout }) {
   const [inputValue, setInputValue] = useState("");
-  const [messages, setMessages] = useState([]);
+  const queryClient = useQueryClient();
 
-  const handleSendMessage = () => {
-    if (inputValue.trim() === "") return;
-
-    const newMessage = {
-      id: crypto.randomUUID(),
-      text: inputValue,
-      sender: "user",
-    };
-
-    setMessages([...messages, newMessage]);
-
-    mutation.mutate({ message: inputValue });
-
-    setInputValue("");
-  };
-
-  const { data, isLoading } = useQuery({
-    queryKey: ["healthCheck"],
-    queryFn: () => api.get("/health").then((res) => res.data),
+  const { data: messages = [], isLoading } = useQuery({
+    queryKey: ["messages"],
+    queryFn: () => api.get("/messages").then((res) => res.data),
   });
 
   const mutation = useMutation({
     mutationFn: (newMsg) => api.post("/chat", newMsg).then((res) => res.data),
-    onSuccess: (data) => {
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: crypto.randomUUID(), 
-          text: data.content,
-          sender: "ai",
-        },
-      ]);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["messages"] });
+      setInputValue("");
     },
   });
+
+  const handleSendMessage = () => {
+    if (inputValue.trim() === "" || mutation.isPending) return;
+    mutation.mutate({ message: inputValue });
+  };
 
   return (
     <Box
@@ -52,25 +36,37 @@ export default function ChatPage() {
         component="aside"
         sx={{
           width: "280px",
-          bgcolor: "gray",
-          borderRight: "1px solid ",
+          bgcolor: "background.paper",
+          borderRight: "1px solid",
           borderColor: "divider",
+          display: "flex",
+          flexDirection: "column"
         }}
       >
-        <Typography sx={{ p: 2 }} variant="h6">
-          История чатов
-        </Typography>
-        {isLoading ? "Проверка..." : data.status}
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Чаты</Typography>
+          <IconButton onClick={onLogout} title="Выйти">
+            <LogoutIcon />
+          </IconButton>
+        </Box>
+        
+        <Box sx={{ p: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {isLoading ? "Загрузка истории..." : `Сообщений: ${messages.length}`}
+          </Typography>
+        </Box>
       </Box>
+
       <Box
         component="section"
         sx={{ flexGrow: "1", display: "flex", flexDirection: "column" }}
       >
         <Box sx={{ flexGrow: 1, overflowY: "auto", p: 3 }}>
           {messages.map((msg) => (
-            <ChatMessage key={msg.id} message={msg}></ChatMessage>
+            <ChatMessage key={msg.id} message={msg} />
           ))}
         </Box>
+
         <Box
           sx={{
             p: 2,
@@ -85,18 +81,17 @@ export default function ChatPage() {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleSendMessage();
-              }
+              if (e.key === "Enter") handleSendMessage();
             }}
             placeholder="Напишите сообщение..."
-          ></TextField>
+            disabled={mutation.isPending}
+          />
           <Button
             variant="contained"
             onClick={handleSendMessage}
             disabled={mutation.isPending}
           >
-            Отправить
+            {mutation.isPending ? "..." : "Отправить"}
           </Button>
         </Box>
       </Box>
