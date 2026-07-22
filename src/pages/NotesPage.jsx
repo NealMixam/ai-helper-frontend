@@ -4,249 +4,298 @@ import {
   Typography,
   TextField,
   Button,
-  IconButton,
-  Tooltip,
   Card,
   CardContent,
   CardActions,
   Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
+  IconButton,
   InputAdornment,
+  CircularProgress,
+  Collapse,
+  Divider,
+  Alert,
 } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api";
+import NoteEditor from "../components/NoteEditor";
 
 export default function NotesPage() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
-  const [form, setForm] = useState({ title: "", content: "", tags: "" });
+  const [analyzingId, setAnalyzingId] = useState(null);
+  const [analysisResults, setAnalysisResults] = useState({});
+  const [analysisError, setAnalysisError] = useState(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["notes"],
-    queryFn: () => api.get("/notes").then((r) => r.data),
+    queryFn: () => api.get("/notes?limit=100").then((res) => res.data),
   });
 
   const createMutation = useMutation({
-    mutationFn: (body) => api.post("/notes", body).then((r) => r.data),
+    mutationFn: (data) => api.post("/notes", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      closeDialog();
+      setEditorOpen(false);
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, body }) => api.patch(`/notes/${id}`, body).then((r) => r.data),
+    mutationFn: ({ id, ...data }) => api.patch(`/notes/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["notes"] });
-      closeDialog();
+      setEditorOpen(false);
+      setEditingNote(null);
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: (id) => api.delete(`/notes/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notes"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
   });
 
-  const openCreate = () => {
-    setEditingNote(null);
-    setForm({ title: "", content: "", tags: "" });
-    setDialogOpen(true);
-  };
-
-  const openEdit = (note) => {
-    setEditingNote(note);
-    setForm({
-      title: note.title,
-      content: note.content || "",
-      tags: (note.tags || []).join(", "),
-    });
-    setDialogOpen(true);
-  };
-
-  const closeDialog = () => {
-    setDialogOpen(false);
-    setEditingNote(null);
-  };
-
-  const handleSave = () => {
-    const body = {
-      title: form.title,
-      content: form.content,
-      tags: form.tags
-        ? form.tags.split(",").map((t) => t.trim()).filter(Boolean)
-        : [],
-    };
-
-    if (editingNote) {
-      updateMutation.mutate({ id: editingNote.id, body });
-    } else {
-      createMutation.mutate(body);
-    }
-  };
+  const analyzeMutation = useMutation({
+    mutationFn: (id) => api.post(`/notes/${id}/analyze`),
+    onSuccess: (res, noteId) => {
+      setAnalysisResults((prev) => ({
+        ...prev,
+        [noteId]: res.data.analysis,
+      }));
+      setAnalyzingId(null);
+      setAnalysisError(null);
+      queryClient.invalidateQueries({ queryKey: ["notes"] });
+    },
+    onError: (err) => {
+      setAnalyzingId(null);
+      setAnalysisError(err.response?.data?.error || "Ошибка при анализе");
+    },
+  });
 
   const notes = data?.notes || [];
-  const filtered = notes.filter((n) => {
-    if (!search) return true;
+
+  const filtered = notes.filter((note) => {
+    if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
-      n.title.toLowerCase().includes(q) ||
-      n.content.toLowerCase().includes(q) ||
-      (n.tags || []).some((t) => t.toLowerCase().includes(q))
+      note.title.toLowerCase().includes(q) ||
+      note.content.toLowerCase().includes(q) ||
+      (note.tags || []).some((t) => t.toLowerCase().includes(q))
     );
   });
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const handleCreate = () => {
+    setEditingNote(null);
+    setEditorOpen(true);
+  };
+
+  const handleEdit = (note) => {
+    setEditingNote(note);
+    setEditorOpen(true);
+  };
+
+  const handleSave = (formData) => {
+    if (editingNote) {
+      updateMutation.mutate({ id: editingNote.id, ...formData });
+    } else {
+      createMutation.mutate(formData);
+    }
+  };
+
+  const handleDelete = (note) => {
+    if (window.confirm(`Удалить заметку «${note.title}»?`)) {
+      deleteMutation.mutate(note.id);
+    }
+  };
+
+  const handleAnalyze = (noteId) => {
+    setAnalyzingId(noteId);
+    setAnalysisError(null);
+    analyzeMutation.mutate(noteId);
+  };
+
+  const handleCloseEditor = () => {
+    setEditorOpen(false);
+    setEditingNote(null);
+  };
+
+  const getAnalysisData = (note) => {
+    if (analysisResults[note.id]) return analysisResults[note.id];
+    if (note.ai_summary) {
+      return { summary: note.ai_summary, tags: [], tasks: [] };
+    }
+    return null;
+  };
 
   return (
     <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      {/* Header */}
-      <Box sx={{ p: 2, pb: 0, display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-        <Typography variant="h5" sx={{ fontWeight: 600 }}>
-          Заметки
-        </Typography>
+      <Box sx={{ p: 2, display: "flex", gap: 1, alignItems: "center", flexShrink: 0 }}>
         <TextField
           size="small"
-          placeholder="Поиск по тексту или тегам..."
+          placeholder="Поиск по заметкам..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          sx={{ flexGrow: 1 }}
           slotProps={{
             input: {
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
+                  <SearchIcon />
                 </InputAdornment>
               ),
             },
           }}
-          sx={{ flexGrow: 1, maxWidth: 400 }}
         />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          Новая заметка
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreate}
+        >
+          Заметка
         </Button>
       </Box>
 
-      {/* Notes list */}
-      <Box sx={{ flexGrow: 1, overflowY: "auto", p: 2 }}>
+      <Box sx={{ flexGrow: 1, overflowY: "auto", p: 2, pt: 0 }}>
+        {analysisError && (
+          <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setAnalysisError(null)}>
+            {analysisError}
+          </Alert>
+        )}
+
         {isLoading ? (
           <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
             <CircularProgress />
           </Box>
         ) : filtered.length === 0 ? (
           <Typography color="text.secondary" sx={{ textAlign: "center", mt: 4 }}>
-            {search ? "Ничего не найдено" : "У вас ещё нет заметок"}
+            {search ? "Ничего не найдено" : "Нет заметок. Создайте первую!"}
           </Typography>
         ) : (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {filtered.map((note) => (
-              <Card key={note.id} variant="outlined">
-                <CardContent sx={{ pb: 1 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                    {note.title}
-                  </Typography>
-                  {note.content && (
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      sx={{
-                        mt: 0.5,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: "vertical",
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {note.content}
+            {filtered.map((note) => {
+              const isAnalyzing = analyzingId === note.id;
+              const analysis = getAnalysisData(note);
+
+              return (
+                <Card key={note.id} variant="outlined">
+                  <CardContent sx={{ pb: 1 }}>
+                    <Typography variant="h6" gutterBottom>
+                      {note.title}
                     </Typography>
-                  )}
-                  {(note.tags || []).length > 0 && (
-                    <Box sx={{ mt: 1, display: "flex", gap: 0.5, flexWrap: "wrap" }}>
-                      {note.tags.map((tag) => (
-                        <Chip key={tag} label={tag} size="small" variant="outlined" />
-                      ))}
-                    </Box>
-                  )}
-                </CardContent>
-                <CardActions sx={{ justifyContent: "flex-end", pt: 0 }}>
-                  <Tooltip title="Редактировать">
-                    <IconButton size="small" onClick={() => openEdit(note)}>
+                    {note.content && (
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          whiteSpace: "pre-wrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {note.content}
+                      </Typography>
+                    )}
+                    {note.tags?.length > 0 && (
+                      <Box sx={{ mt: 1, display: "flex", gap: 0.5, flexWrap: "wrap" }}>
+                        {note.tags.map((tag, i) => (
+                          <Chip key={i} label={tag} size="small" variant="outlined" />
+                        ))}
+                      </Box>
+                    )}
+
+                    {/* Analysis results */}
+                    {analysis && (
+                      <Collapse in={!!analysis}>
+                        <Box sx={{ mt: 2, p: 1.5, bgcolor: "action.hover", borderRadius: 1 }}>
+                          <Typography
+                            variant="caption"
+                            fontWeight="bold"
+                            color="primary"
+                            sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}
+                          >
+                            <AutoAwesomeIcon fontSize="inherit" />
+                            AI-анализ
+                          </Typography>
+                          {analysis.summary && (
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              {analysis.summary}
+                            </Typography>
+                          )}
+                          {analysis.tags?.length > 0 && (
+                            <Box sx={{ display: "flex", gap: 0.5, flexWrap: "wrap", mb: 1 }}>
+                              {analysis.tags.map((tag, i) => (
+                                <Chip key={i} label={tag} size="small" color="primary" variant="filled" />
+                              ))}
+                            </Box>
+                          )}
+                          {analysis.tasks?.length > 0 && (
+                            <>
+                              <Typography variant="caption" fontWeight="bold" sx={{ display: "block", mb: 0.5 }}>
+                                📋 Задачи:
+                              </Typography>
+                              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                                {analysis.tasks.map((task, i) => (
+                                  <Typography key={i} component="li" variant="body2">
+                                    {task}
+                                  </Typography>
+                                ))}
+                              </Box>
+                            </>
+                          )}
+                        </Box>
+                      </Collapse>
+                    )}
+                  </CardContent>
+                  <CardActions sx={{ justifyContent: "flex-end", pt: 0 }}>
+                    <Button
+                      size="small"
+                      startIcon={
+                        isAnalyzing ? (
+                          <CircularProgress size={14} />
+                        ) : (
+                          <AutoAwesomeIcon fontSize="small" />
+                        )
+                      }
+                      onClick={() => handleAnalyze(note.id)}
+                      disabled={isAnalyzing}
+                      color={analysis ? "success" : "primary"}
+                    >
+                      {isAnalyzing ? "Анализ..." : "Анализировать"}
+                    </Button>
+                    <IconButton size="small" onClick={() => handleEdit(note)}>
                       <EditIcon fontSize="small" />
                     </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Удалить">
                     <IconButton
                       size="small"
                       color="error"
-                      onClick={() => {
-                        if (window.confirm("Удалить заметку?")) {
-                          deleteMutation.mutate(note.id);
-                        }
-                      }}
+                      onClick={() => handleDelete(note)}
                     >
                       <DeleteIcon fontSize="small" />
                     </IconButton>
-                  </Tooltip>
-                </CardActions>
-              </Card>
-            ))}
+                  </CardActions>
+                </Card>
+              );
+            })}
           </Box>
         )}
       </Box>
 
-      {/* Create/Edit dialog */}
-      <Dialog open={dialogOpen} onClose={closeDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingNote ? "Редактировать заметку" : "Новая заметка"}</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="Заголовок"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            sx={{ mt: 1 }}
-          />
-          <TextField
-            fullWidth
-            label="Содержание"
-            multiline
-            minRows={4}
-            maxRows={12}
-            value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            sx={{ mt: 2 }}
-          />
-          <TextField
-            fullWidth
-            label="Теги"
-            placeholder="тег1, тег2, тег3"
-            value={form.tags}
-            onChange={(e) => setForm({ ...form, tags: e.target.value })}
-            helperText="Теги через запятую"
-            sx={{ mt: 2 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={closeDialog}>Отмена</Button>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={!form.title.trim() || isPending}
-          >
-            {isPending ? <CircularProgress size={20} /> : editingNote ? "Сохранить" : "Создать"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <NoteEditor
+        open={editorOpen}
+        note={editingNote}
+        onSave={handleSave}
+        onClose={handleCloseEditor}
+      />
     </Box>
   );
 }

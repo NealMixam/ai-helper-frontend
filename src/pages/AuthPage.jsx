@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { 
-  Box, 
-  TextField, 
-  Button, 
-  Typography, 
-  Paper, 
-  Link, 
+import { useNavigate } from "react-router-dom";
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Link,
   Alert,
-  CircularProgress 
+  CircularProgress,
 } from "@mui/material";
 import { api } from "../api";
 
@@ -17,6 +18,7 @@ export default function AuthPage({ onLogin }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,10 +29,11 @@ export default function AuthPage({ onLogin }) {
 
     try {
       const res = await api.post(endpoint, { username, password });
-      
+
       if (isLogin) {
         localStorage.setItem("token", res.data.token);
         onLogin();
+        navigate("/chat", { replace: true });
       } else {
         alert("Регистрация успешна! Теперь войдите в аккаунт.");
         setIsLogin(true);
@@ -52,13 +55,13 @@ export default function AuthPage({ onLogin }) {
         bgcolor: "background.default",
       }}
     >
-      <Paper 
-        elevation={3} 
-        sx={{ 
-          p: 4, 
-          width: "100%", 
-          maxWidth: "400px", 
-          textAlign: "center" 
+      <Paper
+        elevation={3}
+        sx={{
+          p: 4,
+          width: "100%",
+          maxWidth: "400px",
+          textAlign: "center",
         }}
       >
         <Typography variant="h4" gutterBottom>
@@ -89,7 +92,7 @@ export default function AuthPage({ onLogin }) {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          
+
           <Button
             fullWidth
             variant="contained"
@@ -97,7 +100,13 @@ export default function AuthPage({ onLogin }) {
             disabled={loading}
             sx={{ mt: 3, mb: 2, py: 1.5 }}
           >
-            {loading ? <CircularProgress size={24} /> : (isLogin ? "Войти" : "Создать аккаунт")}
+            {loading ? (
+              <CircularProgress size={24} />
+            ) : isLogin ? (
+              "Войти"
+            ) : (
+              "Создать аккаунт"
+            )}
           </Button>
 
           <Link
@@ -109,8 +118,8 @@ export default function AuthPage({ onLogin }) {
               setError("");
             }}
           >
-            {isLogin 
-              ? "Нет аккаунта? Зарегистрируйтесь" 
+            {isLogin
+              ? "Нет аккаунта? Зарегистрируйтесь"
               : "Уже есть аккаунт? Войдите"}
           </Link>
         </Box>

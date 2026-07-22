@@ -37,16 +37,17 @@ export default function ChatPage() {
   };
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
+    <>
       <Box sx={{ flexGrow: 1, overflowY: "auto", p: 3 }}>
-        {isLoading && (
-          <Typography color="text.secondary" sx={{ textAlign: "center" }}>
-            Загрузка истории...
-          </Typography>
+        {isLoading ? (
+          <Typography color="text.secondary">Загрузка истории...</Typography>
+        ) : messages.length === 0 ? (
+          <Typography color="text.secondary">Нет сообщений. Начните диалог!</Typography>
+        ) : (
+          messages.map((msg) => (
+            <ChatMessage key={msg.id} message={msg} />
+          ))
         )}
-        {messages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
-        ))}
         <div ref={messagesEndRef} />
       </Box>
 
@@ -77,6 +78,6 @@ export default function ChatPage() {
           {mutation.isPending ? "..." : "Отправить"}
         </Button>
       </Box>
-    </Box>
+    </>
   );
 }

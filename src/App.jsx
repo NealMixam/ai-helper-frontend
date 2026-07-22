@@ -8,12 +8,19 @@ import {
 } from "@mui/material";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import AuthPage from "./pages/AuthPage";
 import ChatPage from "./pages/ChatPage";
 import NotesPage from "./pages/NotesPage";
-import AppLayout from "./components/AppLayout";
+import AuthPage from "./pages/AuthPage";
+import AppLayout from "./layouts/AppLayout";
 
 const queryClient = new QueryClient();
+
+function ProtectedRoute({ children, isAuthenticated }) {
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />;
+  }
+  return children;
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -41,7 +48,7 @@ function App() {
           mode: activeMode,
         },
       }),
-    [activeMode],
+    [activeMode]
   );
 
   const toggleTheme = () => {
@@ -60,17 +67,6 @@ function App() {
     queryClient.clear();
   };
 
-  if (!isAuthenticated) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
-          <AuthPage onLogin={handleLogin} />
-        </ThemeProvider>
-      </QueryClientProvider>
-    );
-  }
-
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
@@ -78,18 +74,33 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route
+              path="/auth"
               element={
-                <AppLayout
-                  onLogout={handleLogout}
-                  toggleTheme={toggleTheme}
-                  currentMode={activeMode}
-                />
+                isAuthenticated ? (
+                  <Navigate to="/chat" replace />
+                ) : (
+                  <AuthPage onLogin={handleLogin} />
+                )
+              }
+            />
+            <Route
+              element={
+                <ProtectedRoute isAuthenticated={isAuthenticated}>
+                  <AppLayout
+                    onLogout={handleLogout}
+                    toggleTheme={toggleTheme}
+                    currentMode={activeMode}
+                  />
+                </ProtectedRoute>
               }
             >
-              <Route index element={<ChatPage />} />
-              <Route path="notes" element={<NotesPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/notes" element={<NotesPage />} />
             </Route>
+            <Route
+              path="*"
+              element={<Navigate to={isAuthenticated ? "/chat" : "/auth"} replace />}
+            />
           </Routes>
         </BrowserRouter>
       </ThemeProvider>
