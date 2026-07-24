@@ -13,6 +13,7 @@ import {
 import ChatIcon from "@mui/icons-material/Chat";
 import NoteAltIcon from "@mui/icons-material/NoteAlt";
 import WbSunnyIcon from "@mui/icons-material/WbSunny";
+import SettingsIcon from "@mui/icons-material/Settings";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -21,6 +22,7 @@ const navItems = [
   { path: "/chat", label: "Чат", icon: <ChatIcon /> },
   { path: "/notes", label: "Заметки", icon: <NoteAltIcon /> },
   { path: "/weather", label: "Погода", icon: <WbSunnyIcon /> },
+  { path: "/profile", label: "Профиль", icon: <SettingsIcon /> },
 ];
 
 export default function AppLayout({ onLogout, toggleTheme, currentMode }) {

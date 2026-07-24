@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ChatPage from "./pages/ChatPage";
 import NotesPage from "./pages/NotesPage";
 import WeatherPage from "./pages/WeatherPage";
+import ProfilePage from "./pages/ProfilePage";
 import AuthPage from "./pages/AuthPage";
 import AppLayout from "./layouts/AppLayout";
 
@@ -98,6 +99,7 @@ function App() {
               <Route path="/chat" element={<ChatPage />} />
               <Route path="/notes" element={<NotesPage />} />
               <Route path="/weather" element={<WeatherPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
             </Route>
             <Route
               path="*"
