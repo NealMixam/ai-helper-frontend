@@ -1,18 +1,83 @@
-# React + Vite
+# AI Helper — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React frontend for the AI Helper personal assistant app.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- ✅ **JWT Authentication** — login/register with token persistence
+- ✅ **Chat with AI** — DeepSeek-powered chat with markdown rendering and syntax highlighting
+- ✅ **Notes** — create, edit, delete notes with tags and client-side search
+- ✅ **AI Note Analysis** — one-click summarization, auto-tagging, and task extraction
+- ✅ **Weather** — track cities with current weather (temperature, humidity, wind)
+- ✅ **Telegram Integration** — link your Telegram account via one-time code
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- **Framework:** React 19
+- **Build Tool:** Vite 8
+- **Language:** JavaScript (JSX)
+- **UI Library:** Material UI 7
+- **State/Data:** React Query (TanStack Query v5)
+- **Routing:** React Router v7
+- **HTTP:** Axios
+- **AI Chat:** react-markdown + react-syntax-highlighter
 
-Note: This will impact Vite dev & build performances.
+## Getting Started
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- Node.js 18+
+- Backend server running (see [ai-helper-backend](../ai-helper-backend))
+
+### Setup
+
+```bash
+cd ai-helper
+
+npm install
+npm run dev
+```
+
+The app will start at `http://localhost:5173` and proxy API requests to the backend at `http://localhost:3001`.
+
+## Available Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start development server |
+| `npm run build` | Production build |
+| `npm run lint` | Run ESLint |
+| `npm run preview` | Preview production build |
+
+## Project Structure
+
+```
+src/
+├── api.js            # Axios instance with JWT interceptor
+├── components/       # Reusable components (ChatMessage, NoteEditor)
+├── layouts/          # App shell with sidebar navigation
+├── pages/            # Route pages (Auth, Chat, Notes, Weather, Profile)
+└── assets/           # Static assets
+```
+
+## Pages
+
+| Route | Page | Description |
+|-------|------|-------------|
+| `/auth` | AuthPage | Login / Registration |
+| `/chat` | ChatPage | AI chat with DeepSeek |
+| `/notes` | NotesPage | Notes CRUD with AI analysis |
+| `/weather` | WeatherPage | Track cities and view weather |
+| `/profile` | ProfilePage | Settings & Telegram linking |
+
+## API Configuration
+
+The API base URL is configured in `src/api.js`:
+
+```js
+export const api = axios.create({
+  baseURL: 'http://localhost:3001/api',
+});
+```
+
+JWT tokens are automatically attached to every request via an Axios interceptor.
